@@ -21,9 +21,10 @@ function App({ signOut, user }) {
     try {
       // The name 'ApiGateway' here MUST match the name in your aws-exports.js
       const apiData = await get({ apiName: 'ApiGateway', path: '/bills' });
-      setBills(apiData);
+      setBills(Array.isArray(apiData) ? apiData : []);
     } catch (error) {
       console.error('error fetching bills:', error);
+      setBills([]);
     }
   }
 
