@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Amplify, API } from 'aws-amplify';
+import { Amplify } from 'aws-amplify';
+import { get, post, del } from '@aws-amplify/api';
 import { withAuthenticator, Button, Heading, TextField, View, Flex } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
 
@@ -19,7 +20,7 @@ function App({ signOut, user }) {
   async function fetchBills() {
     try {
       // The name 'ApiGateway' here MUST match the name in your aws-exports.js
-      const apiData = await API.get('ApiGateway', '/bills');
+      const apiData = await get({ apiName: 'ApiGateway', path: '/bills' });
       setBills(apiData);
     } catch (error) {
       console.error('error fetching bills:', error);
@@ -30,8 +31,10 @@ function App({ signOut, user }) {
     event.preventDefault();
     try {
       const bill = { ...formState, amount: parseFloat(formState.amount) };
-      await API.post('ApiGateway', '/bills', {
-        body: bill
+      await post({
+        apiName: 'ApiGateway',
+        path: '/bills',
+        options: { body: bill }
       });
       fetchBills(); // Refresh the list
       setFormState({ name: '', amount: '' }); // Clear form
@@ -42,7 +45,10 @@ function App({ signOut, user }) {
   
   async function deleteBill(billId) {
     try {
-      await API.del('ApiGateway', `/bills/${billId}`);
+      await del({
+        apiName: 'ApiGateway',
+        path: `/bills/${billId}`
+      });
       fetchBills(); // Refresh the list
     } catch (error) {
       console.error('error deleting bill:', error);
