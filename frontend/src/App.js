@@ -93,7 +93,7 @@ function App({ signOut, user }) {
 
       <Heading level={2}>Current Bills</Heading>
       <View margin="1rem 0">
-        {bills.map(bill => (
+        {(Array.isArray(bills) ? bills : []).map(bill => (
           <Flex
             key={bill.billId}
             direction="row"
