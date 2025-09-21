@@ -19,9 +19,36 @@ function App({ signOut, user }) {
 
   async function fetchBills() {
     try {
-      // The name 'ApiGateway' here MUST match the name in your aws-exports.js
-      const apiData = await get({ apiName: 'ApiGateway', path: '/bills' });
-      setBills(Array.isArray(apiData) ? apiData : []);
+      const apiOp = await get({ apiName: 'ApiGateway', path: '/bills' });
+      const apiData = await apiOp.response;
+      console.log('apiData:', apiData);
+
+      let billsArray = [];
+      if (apiData && apiData.body && typeof apiData.body.getReader === 'function') {
+        // body is a ReadableStream
+        const reader = apiData.body.getReader();
+        let chunks = [];
+        let done, value;
+        while (true) {
+          ({ done, value } = await reader.read());
+          if (done) break;
+          chunks.push(value);
+        }
+        // Concatenate all Uint8Arrays and decode to string
+        const allChunks = new Uint8Array(chunks.reduce((acc, curr) => acc + curr.length, 0));
+        let offset = 0;
+        for (const chunk of chunks) {
+          allChunks.set(chunk, offset);
+          offset += chunk.length;
+        }
+        const jsonString = new TextDecoder().decode(allChunks);
+        billsArray = JSON.parse(jsonString);
+      } else if (apiData && typeof apiData.body === 'string') {
+        billsArray = JSON.parse(apiData.body);
+      } else if (Array.isArray(apiData)) {
+        billsArray = apiData;
+      }
+      setBills(billsArray);
     } catch (error) {
       console.error('error fetching bills:', error);
       setBills([]);

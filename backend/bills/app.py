@@ -14,7 +14,7 @@ class DecimalEncoder(json.JSONEncoder):
 # Check if running locally (AWS_SAM_LOCAL is set by SAM CLI)
 if 'AWS_SAM_LOCAL' in os.environ:
     print("Running locally. Connecting to local DynamoDB.")
-    dynamodb = boto3.resource('dynamodb', endpoint_url="http://localhost:8000")
+    dynamodb = boto3.resource('dynamodb', endpoint_url="http://host.docker.internal:8000")
     # For local, we use a fixed table name defined in the local setup guide
     TABLE_NAME = 'my-bills-app-Bills'
 else:
@@ -25,9 +25,26 @@ else:
 table = dynamodb.Table(TABLE_NAME)
 
 def lambda_handler(event, context):
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
+        "Access-Control-Allow-Methods": "OPTIONS,GET,POST,DELETE"
+    }
+
+    # Handle CORS preflight
+    if event['httpMethod'] == "OPTIONS":
+        return {
+            "statusCode": 200,
+            "headers": headers,
+            "body": ""
+        }
+
     try:
         # The user's unique ID is passed by API Gateway from the Cognito token
-        user_id = event['requestContext']['authorizer']['claims']['sub']
+        if 'AWS_SAM_LOCAL' in os.environ:
+            user_id = "local-user-123"
+        else:
+            user_id = event['requestContext']['authorizer']['claims']['sub']
     except KeyError:
         return {
             "statusCode": 401,
@@ -36,16 +53,12 @@ def lambda_handler(event, context):
 
     http_method = event['httpMethod']
     path = event['path']
-    
-    headers = {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Headers": "Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token",
-        "Access-Control-Allow-Methods": "OPTIONS,GET,POST,DELETE"
-    }
 
     try:
         if http_method == "GET" and path == "/bills":
+            print("Querying bills for user:", user_id)
             response = table.query(KeyConditionExpression=boto3.dynamodb.conditions.Key('userId').eq(user_id))
+            print("Query result:", response)
             return { "statusCode": 200, "headers": headers, "body": json.dumps(response.get('Items', []), cls=DecimalEncoder) }
 
         elif http_method == "POST" and path == "/bills":
